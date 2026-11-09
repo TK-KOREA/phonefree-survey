@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>폰프리 스쿨 학부모 의견 수렴 설문</title>
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #1f2430; --muted: #5d6474; --line: #d9dce3; --bg: #f3f4f7; --card: #fff;
+    --accent: #2f3b73; --accent-soft: #e9ecf7; --error: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1.6 "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    word-break: keep-all;
+  }
+  main { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
+  header { padding: 32px 4px 20px; }
+  .school { margin: 0 0 6px; color: var(--muted); font-size: 15px; }
+  h1 { margin: 0 0 14px; font-size: 25px; line-height: 1.35; }
+  header p { margin: 0 0 10px; }
+  .notice { font-size: 15px; color: var(--muted); }
+  .progress {
+    position: sticky; top: 0; z-index: 2; margin: 0 -16px 14px; padding: 10px 20px;
+    background: var(--bg); font-size: 14px; color: var(--muted);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .bar { flex: 1; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  fieldset {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+    margin: 0 0 14px; padding: 18px 16px 12px; min-width: 0; scroll-margin-top: 52px;
+  }
+  fieldset.invalid { border-color: var(--error); }
+  legend { float: left; width: 100%; padding: 0; font-weight: 700; margin-bottom: 4px; }
+  .hint { clear: both; margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+  .opt {
+    clear: both; display: flex; align-items: flex-start; gap: 10px;
+    padding: 11px 8px; border-radius: 8px; cursor: pointer; min-height: 44px;
+  }
+  .opt:hover { background: var(--accent-soft); }
+  .opt input { width: 20px; height: 20px; margin: 3px 0 0; flex: none; accent-color: var(--accent); }
+  .other { display: none; width: calc(100% - 38px); margin: 0 0 8px 38px; padding: 10px 12px;
+    font: inherit; border: 1px solid var(--line); border-radius: 8px; }
+  .other.show { display: block; }
+  .err { display: none; color: var(--error); font-size: 15px; margin: 4px 8px 6px; }
+  .invalid .err { display: block; }
+  .trap { position: absolute; left: -9999px; }
+  button {
+    width: 100%; padding: 15px; border: 0; border-radius: 10px; font: inherit; font-weight: 700;
+    background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button:disabled { opacity: .55; cursor: default; }
+  button.ghost { background: none; color: var(--accent); font-weight: 400; }
+  #status { min-height: 1.6em; margin: 12px 4px 0; text-align: center; color: var(--error); }
+  #done { display: none; padding: 72px 4px; text-align: center; }
+  #done h2 { font-size: 23px; margin: 0 0 10px; }
+</style>
+</head>
+<body>
+<main>
+  <div id="survey">
+    <header>
+      <p class="school">군서고등학교</p>
+      <h1>「폰프리 스쿨」 추진을 위한 보호자 의견 수렴 설문</h1>
+      <p>우리 학교의 「폰프리 스쿨」 운영 방안을 마련하기 위한 설문입니다. 학교와 학생의 특성을 고려하여 생각하시는 의견을 자유롭게 표시해 주시기 바랍니다.</p>
+      <p class="notice">이름이나 연락처는 묻지 않습니다. ‘기타’ 칸에도 개인을 알 수 있는 내용은 적지 말아 주세요.</p>
+    </header>
+    <div class="progress" aria-hidden="true"><span id="count"></span><div class="bar"><i id="fill"></i></div></div>
+    <form id="form" novalidate>
+      <div id="questions"></div>
+      <div class="trap" aria-hidden="true"><label>비워 두세요 <input id="website" tabindex="-1" autocomplete="off"></label></div>
+      <button id="submit" type="submit">제출하기</button>
+      <p id="status" role="status"></p>
+    </form>
+  </div>
+  <section id="done">
+    <h2>응답이 제출되었습니다</h2>
+    <p>소중한 의견은 우리 학교의 「폰프리 스쿨」 운영 방안을 마련하는 데 활용하겠습니다. 감사합니다.</p>
+    <button class="ghost" id="again" type="button">새 응답 작성하기</button>
+  </section>
+</main>
+<script>
+const ENDPOINT = "";
+const QUESTIONS = [
+ {
+  "short": "스마트폰 사용 축소 필요성",
+  "multi": false,
+  "text": "학교에서 교육활동과 관련 없는 스마트폰 사용을 줄일 필요가 있다고 생각하십니까?",
+  "options": [
+   "매우 필요하다",
+   "필요하다",
+   "보통이다",
+   "필요하지 않다",
+   "전혀 필요하지 않다"
+  ]
+ },
+ {
+  "short": "기대되는 도움",
+  "multi": true,
+  "text": "학교에서 스마트폰 사용을 줄이는 것이 학생에게 어떤 도움을 줄 수 있다고 생각하십니까?",
+  "options": [
+   "수업 및 학습에 더 집중할 수 있음",
+   "친구와 직접 대화하고 관계를 형성할 수 있음",
+   "독서·놀이·예술문화·스포츠 활동에 참여할 수 있음",
+   "스마트폰 사용을 스스로 조절하는 습관을 기를 수 있음",
+   "몸과 마음의 건강한 생활 습관 형성에 도움이 됨",
+   "특별한 도움이 없다고 생각함",
+   "기타"
+  ]
+ },
+ {
+  "short": "적용 시간",
+  "multi": false,
+  "text": "우리 학교에서 교육활동과 관련 없는 스마트폰 사용을 줄인다면 어느 시간까지 적용하는 것이 적절하다고 생각하십니까?",
+  "options": [
+   "수업 시간 중심",
+   "수업 시간과 쉬는 시간",
+   "등교 후부터 하교 전까지 학교 일과 중",
+   "학년·학급에 따라 다르게 운영",
+   "학생이 스스로 보관·조절하도록 하는 것이 적절함",
+   "기타"
+  ]
+ },
+ {
+  "short": "보관 방법",
+  "multi": false,
+  "text": "스마트폰을 별도로 보관할 필요가 있는 경우, 어떤 방법이 적절하다고 생각하십니까?",
+  "options": [
+   "학생이 전원을 끄고 가방·사물함 등에 자율 보관",
+   "학생이 개인 파우치에 보관",
+   "학급 수거용 가방 등에 모아 보관",
+   "학급 보관함에 보관",
+   "학교가 정한 장소에 보관",
+   "별도로 보관할 필요가 없음",
+   "기타"
+  ]
+ },
+ {
+  "short": "사용 허용이 필요한 경우",
+  "multi": true,
+  "text": "학교에서 스마트폰 사용을 허용할 필요가 있다고 생각하는 경우는 무엇입니까?",
+  "options": [
+   "교사의 안내에 따른 수업 및 교육활동",
+   "학생의 건강·장애·통역 등 교육적·생활상 필요한 경우",
+   "보호자와의 긴급 연락이 필요한 경우",
+   "현장체험학습 등 학교 밖 교육활동",
+   "그 밖에 학교가 필요성을 인정한 경우",
+   "기타"
+  ]
+ },
+ {
+  "short": "긴급 연락 방법",
+  "multi": false,
+  "text": "학교 일과 중 보호자와 학생 간 긴급 연락은 어떤 방법이 적절하다고 생각하십니까?",
+  "options": [
+   "학교 대표전화 등을 통한 연락",
+   "담당 교직원을 통한 연락",
+   "필요한 경우 학생의 스마트폰 사용 허용",
+   "위 방법을 상황에 따라 함께 활용",
+   "기타"
+  ]
+ },
+ {
+  "short": "활성화 희망 활동",
+  "multi": true,
+  "text": "스마트폰을 내려놓은 시간에 학교에서 더욱 활성화했으면 하는 활동은 무엇입니까?",
+  "options": [
+   "독서 및 도서관 활동",
+   "음악·미술·공연 등 예술문화 활동",
+   "스포츠 및 신체 활동",
+   "보드게임·전통놀이 등 놀이 활동",
+   "친구와 대화·산책 등 관계·소통 활동",
+   "학생자치회가 직접 제안·운영하는 활동",
+   "편안하게 쉬는 시간과 공간",
+   "기타"
+  ]
+ },
+ {
+  "short": "약속 미준수 시 지도",
+  "multi": true,
+  "text": "학생이 학교에서 함께 정한 스마트폰 사용 약속을 지키기 어려운 경우, 어떤 지도가 중요하다고 생각하십니까?",
+  "options": [
+   "먼저 학생이 사용한 이유와 상황을 듣기",
+   "학생이 자신의 행동과 약속의 의미를 돌아보도록 하기",
+   "학생과 함께 다시 실천할 방법을 정하기",
+   "보호자에게 안내하고 상담하기",
+   "반복되는 경우 학생생활규정에 따라 지도하기",
+   "기타"
+  ]
+ },
+ {
+  "short": "세심히 살필 부분",
+  "multi": true,
+  "max": 2,
+  "text": "「폰프리 스쿨」을 운영하면서 학교가 가장 세심하게 살펴야 할 부분은 무엇이라고 생각하십니까?",
+  "options": [
+   "학생의 자율성과 의견 존중",
+   "수업 및 학습 환경 개선",
+   "스마트폰 보관 중 분실·파손 예방",
+   "긴급 연락 방법 마련",
+   "건강·장애 등 예외 상황 보장",
+   "교사의 생활지도 부담",
+   "학생이 참여할 수 있는 성장 활동 마련",
+   "충분한 시범운영과 의견 수렴",
+   "기타"
+  ]
+ },
+ {
+  "short": "운영 후 재수렴 필요성",
+  "multi": false,
+  "text": "「폰프리 스쿨」을 일정 기간 운영한 뒤 학생·교직원·보호자의 의견을 다시 수렴하여 운영 방법을 수정·보완하는 것에 대해 어떻게 생각하십니까?",
+  "options": [
+   "매우 필요하다",
+   "필요하다",
+   "보통이다",
+   "필요하지 않다",
+   "전혀 필요하지 않다"
+  ]
+ },
+ {
+  "short": "제안 및 우려 사항",
+  "free": true,
+  "text": "우리 학교 「폰프리 스쿨」 운영과 관련하여 제안하거나 우려되는 점이 있다면 자유롭게 적어 주세요."
+ }
+];
+const DONE_KEY = "phonefree-survey-submitted";
+const OTHER = "기타";
+
+const $ = (id) => document.getElementById(id);
+let responseId = newId();
+
+function newId() {
+  return Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 12);
+}
+function store(action) {
+  try { return action(window.localStorage); } catch (e) { return null; }
+}
+
+QUESTIONS.forEach((q, i) => {
+  const name = "q" + (i + 1);
+  const fs = document.createElement("fieldset");
+  fs.id = "fs-" + name;
+  const legend = document.createElement("legend");
+  legend.textContent = (i + 1) + ". " + q.text;
+  fs.appendChild(legend);
+  const hint = document.createElement("p");
+  hint.className = "hint";
+  hint.textContent = q.free ? "선택 사항" : q.max ? q.max + "개까지 선택" : q.multi ? "중복 선택 가능" : "하나만 선택";
+  fs.appendChild(hint);
+  if (q.free) {
+    const area = document.createElement("textarea");
+    area.id = "free-" + name;
+    area.className = "other show";
+    area.style.cssText = "width:100%;margin:0 0 8px;min-height:120px;resize:vertical";
+    area.maxLength = 1000;
+    area.setAttribute("aria-label", (i + 1) + "번 자유 의견");
+    fs.appendChild(area);
+    $("questions").appendChild(fs);
+    return;
+  }
+  (q.options).forEach((label) => {
+    const row = document.createElement("label");
+    row.className = "opt";
+    const input = document.createElement("input");
+    input.type = q.multi ? "checkbox" : "radio";
+    input.name = name;
+    input.value = label;
+    row.appendChild(input);
+    row.appendChild(document.createTextNode(label));
+    fs.appendChild(row);
+    if (label === OTHER) {
+      const other = document.createElement("input");
+      other.type = "text";
+      other.className = "other";
+      other.id = "other-" + name;
+      other.maxLength = 200;
+      other.setAttribute("aria-label", (i + 1) + "번 기타 내용");
+      other.placeholder = "내용을 적어 주세요";
+      fs.appendChild(other);
+    }
+  });
+  const err = document.createElement("p");
+  err.className = "err";
+  err.textContent = "답변을 선택해 주세요.";
+  fs.appendChild(err);
+  fs.addEventListener("input", (event) => {
+    if (q.max && event.target.name === name && checked(name).length > q.max) {
+      event.target.checked = false;
+      err.textContent = q.max + "개까지만 선택할 수 있습니다.";
+      fs.classList.add("invalid");
+    } else if (fs.classList.contains("invalid")) {
+      check(q, i);
+    }
+    syncOther(name);
+    updateProgress();
+  });
+  $("questions").appendChild(fs);
+});
+
+function otherBox(name) { return $("other-" + name); }
+function checked(name) { return [...document.querySelectorAll('input[name="' + name + '"]:checked')]; }
+function syncOther(name) {
+  const box = otherBox(name);
+  if (!box) return;
+  box.classList.toggle("show", checked(name).some((c) => c.value === OTHER));
+}
+function check(q, i) {
+  if (q.free) return true;
+  const name = "q" + (i + 1);
+  const fs = $("fs-" + name);
+  const picks = checked(name);
+  const box = otherBox(name);
+  let message = "";
+  if (!picks.length) message = "답변을 선택해 주세요.";
+  else if (picks.some((c) => c.value === OTHER) && !box.value.trim()) message = "‘기타’ 내용을 적어 주세요.";
+  fs.querySelector(".err").textContent = message;
+  fs.classList.toggle("invalid", !!message);
+  return !message;
+}
+function answerOf(q, i) {
+  const name = "q" + (i + 1);
+  if (q.free) return $("free-" + name).value.trim();
+  const values = checked(name).map((c) => c.value === OTHER ? OTHER + ": " + otherBox(name).value.trim() : c.value);
+  return q.multi ? values : values[0];
+}
+function updateProgress() {
+  const required = QUESTIONS.filter((q) => !q.free).length;
+  const n = QUESTIONS.filter((q, i) => !q.free && checked("q" + (i + 1)).length).length;
+  $("count").textContent = n + " / " + required;
+  $("fill").style.width = (n / required * 100) + "%";
+}
+function showDone(on) {
+  $("survey").style.display = on ? "none" : "";
+  $("done").style.display = on ? "block" : "none";
+  window.scrollTo(0, 0);
+}
+
+$("form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  $("status").textContent = "";
+  const results = QUESTIONS.map(check);
+  const firstBad = results.indexOf(false);
+  if (firstBad >= 0) {
+    const fs = $("fs-q" + (firstBad + 1));
+    fs.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (!ENDPOINT) {
+    $("status").textContent = "설문 접수를 준비하고 있습니다. 잠시 후 다시 시도해 주세요.";
+    return;
+  }
+  const payload = { id: responseId, website: $("website").value, answers: {} };
+  QUESTIONS.forEach((q, i) => { payload.answers["q" + (i + 1)] = answerOf(q, i); });
+  $("submit").disabled = true;
+  $("submit").textContent = "제출하는 중…";
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "rejected");
+    store((s) => s.setItem(DONE_KEY, "1"));
+    showDone(true);
+  } catch (e) {
+    $("status").textContent = "제출하지 못했습니다. 입력한 내용은 그대로 있으니 잠시 후 다시 눌러 주세요.";
+  } finally {
+    $("submit").disabled = false;
+    $("submit").textContent = "제출하기";
+  }
+});
+
+$("again").addEventListener("click", () => {
+  store((s) => s.removeItem(DONE_KEY));
+  $("form").reset();
+  document.querySelectorAll("input.other").forEach((b) => b.classList.remove("show"));
+  responseId = newId();
+  updateProgress();
+  showDone(false);
+});
+
+updateProgress();
+if (store((s) => s.getItem(DONE_KEY))) showDone(true);
+</script>
+</body>
+</html>
